@@ -1,0 +1,56 @@
+on:
+  workflow_call:
+
+jobs:
+  auto-format:
+    # Check if the comment contains the trigger /format-action.
+    # Check if the comments come from pull request, exclude those from issue.
+    if: |
+      contains(github.event.comment.body, '/format') &&
+      !contains(github.event.comment.user.login, 'brainless-bot')
+    name: auto-format
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@b62528385c34dbc9f38e5f4225ac829252d1ea92
+        with:
+          app_id: ${{ secrets.BOT_APP_ID }}
+          private_key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+
+      - name: Inform user
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          message: |
+            :robot: I will now format your code with black. Check the status [here](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+
+      - uses: xt0rted/pull-request-comment-branch@v2
+        id: comment-branch
+
+      - uses: actions/checkout@v3
+        if: success()
+        with:
+          ref: ${{ steps.comment-branch.outputs.head_ref }}
+          persist-credentials: false
+
+      - name: Lint with black
+        uses: psf/black@stable
+        with:
+          options: "--verbose"
+          src: "."
+          jupyter: true
+
+      - name: Add and commit changes
+        run: |
+          git config --local user.name brainless-bot[bot]
+          git config --local user.email 153751247+brainless-bot[bot]@users.noreply.github.com
+          git add .
+          git commit -am "Autoformat with black" || echo "No changes to commit"
+
+      - name: Push
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ steps.generate_token.outputs.token }}
+          branch: ${{ steps.comment-branch.outputs.head_ref }}
