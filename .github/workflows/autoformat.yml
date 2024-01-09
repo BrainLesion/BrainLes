@@ -2,7 +2,7 @@ on:
   workflow_call:
 
 jobs:
-  auto-format:
+  black-format:
     # Check if the comment contains the trigger /format-action.
     # Check if the comments come from pull request, exclude those from issue.
     if: |
